@@ -33,6 +33,14 @@ java {
     }
 }
 
+jar {
+    manifest {
+        attributes(
+            'Main-Class': 'com.scratchgame.App'
+        )
+    }
+}
+
 application {
     // Define the main class for the application.
     mainClass = 'com.scratchgame.App'

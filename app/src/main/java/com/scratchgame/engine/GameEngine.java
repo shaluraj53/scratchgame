@@ -10,6 +10,7 @@ import com.scratchgame.model.Config;
 import com.scratchgame.model.GameResult;
 import com.scratchgame.model.SymbolInfo;
 import com.scratchgame.model.WinCombination;
+import com.scratchgame.utils.GameConstants;
 
 public class GameEngine {
 
@@ -30,7 +31,7 @@ public class GameEngine {
 
         for (int r = 0; r < rows; r++) {
             for (int c = 0; c < columns; c++) {
-                String symbol = pickSymbol(r, c);
+                String symbol = pickStandardSymbol(r, c);
                 matrix[r][c] = symbol;
                 symbolCounts.put(symbol, symbolCounts.getOrDefault(symbol, 0) + 1);
             }
@@ -71,11 +72,11 @@ public class GameEngine {
             for (Map.Entry<String, WinCombination> entry : config.winCombinations().entrySet()) {
                 String key = entry.getKey();
                 WinCombination wc = entry.getValue();
-                if (wc.when().equals("same_symbols") && wc.count() == symbolCounts.get(symbol)) {
+                if (wc.when().equals(GameConstants.CONFIG_KEY_SAME_SYMBOLS) && wc.count() == symbolCounts.get(symbol)) {
                     appliedWinCombinations.computeIfAbsent(symbol, k -> new ArrayList<>()).add(key);
                     comboMultiplier *= wc.rewardMultiplier();
                     winCombinationFound = true;
-                } else if (wc.when().equals("linear_symbols")) {
+                } else if (wc.when().equals(GameConstants.CONFIG_KEY_LINEAR_SYMBOLS)) {
                     for (List<String> area : wc.coveredAreas()) {
                         String first = null;
                         boolean match = true;
@@ -83,7 +84,8 @@ public class GameEngine {
                             int[] rc = Arrays.stream(pos.split(":")).mapToInt(Integer::parseInt).toArray();
                             String current = matrix[rc[0]][rc[1]];
                             if (!config.symbols().containsKey(current)
-                                    || config.symbols().get(current).type().equals("bonus")) {
+                                    || config.symbols().get(current).type()
+                                            .equals(GameConstants.CONFIG_KEY_SYMBOL_BONUS)) {
                                 match = false;
                                 break;
                             }
@@ -108,20 +110,20 @@ public class GameEngine {
         }
 
         String appliedBonusSymbol = null;
-        if (reward > 0 && bonusSymbolInMatrix != null) {
+        if (reward > 0 && bonusSymbolInMatrix != null && !bonusSymbolInMatrix.isEmpty()) {
             appliedBonusSymbol = bonusSymbolInMatrix;
             SymbolInfo bonus = config.symbols().get(appliedBonusSymbol);
             switch (bonus.impact()) {
-                case "multiply_reward" -> reward *= bonus.rewardMultiplier();
-                case "extra_bonus" -> reward += bonus.extra();
-                case "miss" -> appliedBonusSymbol = null;
+                case GameConstants.CONFIG_KEY_BONUS_MULTIPLIER -> reward *= bonus.rewardMultiplier();
+                case GameConstants.CONFIG_KEY_BONUS_ADDITION -> reward += bonus.extra();
+                default -> appliedBonusSymbol = null;
             }
         }
 
         return new GameResult(matrix, (int) reward, appliedWinCombinations, appliedBonusSymbol);
     }
 
-    private String pickSymbol(int row, int col) {
+    private String pickStandardSymbol(int row, int col) {
         Map<String, Integer> probabilityMap = config.getProbabilityForCell(row, col);
         int total = probabilityMap.values().stream().mapToInt(i -> i).sum();
         int rnd = random.nextInt(total);
@@ -158,10 +160,12 @@ public class GameEngine {
         int r = random.nextInt(matrix.length);
         int c = random.nextInt(matrix[0].length);
         String standardSymbolGettingReplaced = matrix[r][c];
+
         matrix[r][c] = bonusSymbol;
         int prevCount = symbolCounts.get(standardSymbolGettingReplaced);
         int updatedCount = --prevCount;
-        symbolCounts.put(standardSymbolGettingReplaced, updatedCount);
+        symbolCounts.put(standardSymbolGettingReplaced, updatedCount); // updating sumbols count to reflect addition of
+                                                                       // bonus symbol
         return bonusSymbol;
     }
 }
