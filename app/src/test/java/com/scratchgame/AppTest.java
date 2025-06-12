@@ -30,14 +30,14 @@ class AppTest {
         GameEngine engine = new GameEngine(config);
 
         String[][] matrix = {
-                { "F", "F", "F" },
-                { "+1000", "F", "C" },
-                { "B", "E", "F" }
+                { "C", "F", "F" },
+                { "C", "F", "+1000" },
+                { "F", "E", "B" }
         };
 
         GameResult result = engine.evaluateMatrix(matrix, 100);
 
-        assertEquals(3000, result.reward()); // at least bonus applied
+        assertEquals(1750, result.reward());
         assertTrue(result.appliedWinCombinations().containsKey("F"));
         assertEquals("+1000", result.appliedBonusSymbol());
     }
