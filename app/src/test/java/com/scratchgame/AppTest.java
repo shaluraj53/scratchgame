@@ -5,14 +5,40 @@ package com.scratchgame;
 
 import org.junit.jupiter.api.Test;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.scratchgame.App;
+import com.scratchgame.engine.GameEngine;
+import com.scratchgame.model.Config;
+import com.scratchgame.model.GameResult;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.io.File;
+import java.net.URL;
+
 class AppTest {
     @Test
-    void appHasAGreeting() {
-        App classUnderTest = new App();
-        assertNotNull(classUnderTest.getGreeting(), "app should have a greeting");
+    public void testEvaluateMatrixWithBonusAndWin() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        ClassLoader classLoader = AppTest.class.getClassLoader();
+        File file = null;
+        URL resource = classLoader.getResource("config.json");
+        if (resource != null) {
+            file = new File(resource.getFile());
+        }
+        Config config = mapper.readValue(file, Config.class);
+        GameEngine engine = new GameEngine(config);
+
+        String[][] matrix = {
+                { "F", "F", "F" },
+                { "+1000", "F", "C" },
+                { "B", "E", "F" }
+        };
+
+        GameResult result = engine.evaluateMatrix(matrix, 100);
+
+        assertEquals(3000, result.reward()); // at least bonus applied
+        assertTrue(result.appliedWinCombinations().containsKey("F"));
+        assertEquals("+1000", result.appliedBonusSymbol());
     }
 }

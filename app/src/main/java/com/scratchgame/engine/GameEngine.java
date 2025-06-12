@@ -2,20 +2,17 @@ package com.scratchgame.engine;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import java.util.Set;
-
 import com.scratchgame.model.Config;
 import com.scratchgame.model.GameResult;
 import com.scratchgame.model.SymbolInfo;
 import com.scratchgame.model.WinCombination;
 
 public class GameEngine {
+
     private final Config config;
     private final Random random = new Random();
 
@@ -29,21 +26,40 @@ public class GameEngine {
         String[][] matrix = new String[rows][columns];
 
         Map<String, Integer> symbolCounts = new HashMap<>(); // non-bonus symbols
-        Set<String> bonusSymbolsInMatrix = new HashSet<>();
+        String bonusSymbolInMatrix = "";
 
         for (int r = 0; r < rows; r++) {
             for (int c = 0; c < columns; c++) {
                 String symbol = pickSymbol(r, c);
                 matrix[r][c] = symbol;
+                symbolCounts.put(symbol, symbolCounts.getOrDefault(symbol, 0) + 1);
+            }
+        }
+
+        bonusSymbolInMatrix = injectSingleBonusSymbol(matrix, symbolCounts);
+        return evaluateResult(matrix, betAmount, symbolCounts, bonusSymbolInMatrix);
+    }
+
+    // Method added for test case verification
+    public GameResult evaluateMatrix(String[][] matrix, int betAmount) {
+        Map<String, Integer> symbolCounts = new HashMap<>();
+        String bonusSymbolInMatrix = null;
+        for (int r = 0; r < matrix.length; r++) {
+            for (int c = 0; c < matrix[0].length; c++) {
+                String symbol = matrix[r][c];
                 SymbolInfo info = config.symbols().get(symbol);
                 if (info.type().equals("bonus")) {
-                    bonusSymbolsInMatrix.add(symbol);
+                    bonusSymbolInMatrix = symbol;
                 } else {
                     symbolCounts.put(symbol, symbolCounts.getOrDefault(symbol, 0) + 1);
                 }
             }
         }
+        return evaluateResult(matrix, betAmount, symbolCounts, bonusSymbolInMatrix);
+    }
 
+    private GameResult evaluateResult(String[][] matrix, int betAmount, Map<String, Integer> symbolCounts,
+            String bonusSymbolInMatrix) {
         Map<String, List<String>> appliedWinCombinations = new HashMap<>();
         double reward = 0;
 
@@ -51,12 +67,14 @@ public class GameEngine {
             double baseMultiplier = config.symbols().get(symbol).rewardMultiplier();
             double totalSymbolReward = betAmount * baseMultiplier;
             double comboMultiplier = 1.0;
+            boolean winCombinationFound = false;
             for (Map.Entry<String, WinCombination> entry : config.winCombinations().entrySet()) {
                 String key = entry.getKey();
                 WinCombination wc = entry.getValue();
                 if (wc.when().equals("same_symbols") && wc.count() == symbolCounts.get(symbol)) {
                     appliedWinCombinations.computeIfAbsent(symbol, k -> new ArrayList<>()).add(key);
                     comboMultiplier *= wc.rewardMultiplier();
+                    winCombinationFound = true;
                 } else if (wc.when().equals("linear_symbols")) {
                     for (List<String> area : wc.coveredAreas()) {
                         String first = null;
@@ -77,24 +95,26 @@ public class GameEngine {
                             }
                         }
                         if (match && first.equals(symbol)) {
+                            winCombinationFound = true;
                             appliedWinCombinations.computeIfAbsent(symbol, k -> new ArrayList<>()).add(key);
                             comboMultiplier *= wc.rewardMultiplier();
                         }
                     }
                 }
             }
-            reward += totalSymbolReward * comboMultiplier;
+            if (winCombinationFound) {
+                reward += totalSymbolReward * comboMultiplier;
+            }
         }
 
         String appliedBonusSymbol = null;
-        if (reward > 0 && !bonusSymbolsInMatrix.isEmpty()) {
-            List<String> bonusList = new ArrayList<>(bonusSymbolsInMatrix);
-            Collections.shuffle(bonusList);
-            appliedBonusSymbol = bonusList.get(0);
+        if (reward > 0 && bonusSymbolInMatrix != null) {
+            appliedBonusSymbol = bonusSymbolInMatrix;
             SymbolInfo bonus = config.symbols().get(appliedBonusSymbol);
             switch (bonus.impact()) {
                 case "multiply_reward" -> reward *= bonus.rewardMultiplier();
                 case "extra_bonus" -> reward += bonus.extra();
+                case "miss" -> appliedBonusSymbol = null;
             }
         }
 
@@ -112,5 +132,36 @@ public class GameEngine {
                 return entry.getKey();
         }
         throw new IllegalStateException("Unable to select a symbol.");
+    }
+
+    private String injectSingleBonusSymbol(String[][] matrix, Map<String, Integer> symbolCounts) {
+        Map<String, Integer> bonusProbabilities = config.getBonusSymbolProbabilities();
+        int total = bonusProbabilities.values().stream().mapToInt(i -> i).sum();
+        if (total == 0)
+            return "";
+
+        // Pick a random bonus symbol
+        int rnd = random.nextInt(total);
+        int sum = 0;
+        String bonusSymbol = null;
+        for (Map.Entry<String, Integer> entry : bonusProbabilities.entrySet()) {
+            sum += entry.getValue();
+            if (rnd < sum) {
+                bonusSymbol = entry.getKey();
+                break;
+            }
+        }
+        if (bonusSymbol == null)
+            return "";
+
+        // Pick a random cell to inject the bonus symbol
+        int r = random.nextInt(matrix.length);
+        int c = random.nextInt(matrix[0].length);
+        String standardSymbolGettingReplaced = matrix[r][c];
+        matrix[r][c] = bonusSymbol;
+        int prevCount = symbolCounts.get(standardSymbolGettingReplaced);
+        int updatedCount = --prevCount;
+        symbolCounts.put(standardSymbolGettingReplaced, updatedCount);
+        return bonusSymbol;
     }
 }
