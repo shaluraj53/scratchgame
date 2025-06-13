@@ -15,7 +15,6 @@ A command-line scratch card game in Java where players bet an amount, symbols ar
 
 ## Build
 
-```bash
 ./gradlew shadowJar
 
 Jar location: build/libs/scratchgame-fat.jar
