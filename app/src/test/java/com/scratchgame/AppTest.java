@@ -6,25 +6,23 @@ package com.scratchgame;
 import org.junit.jupiter.api.Test;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.scratchgame.App;
 import com.scratchgame.engine.GameEngine;
 import com.scratchgame.model.Config;
 import com.scratchgame.model.GameResult;
+import com.scratchgame.utils.FileLoader;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.File;
-import java.net.URL;
+import java.io.FileNotFoundException;
 
 class AppTest {
     @Test
     public void testEvaluateMatrixWithBonusAndWin() throws Exception {
         ObjectMapper mapper = new ObjectMapper();
-        ClassLoader classLoader = AppTest.class.getClassLoader();
-        File file = null;
-        URL resource = classLoader.getResource("config.json");
-        if (resource != null) {
-            file = new File(resource.getFile());
+        File file = FileLoader.loadFileFromResources("config.json");
+        if (file == null) {
+            throw new FileNotFoundException("File config.json not found in resources");
         }
         Config config = mapper.readValue(file, Config.class);
         GameEngine engine = new GameEngine(config);
