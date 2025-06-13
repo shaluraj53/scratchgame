@@ -21,8 +21,8 @@ Jar location: build/libs/scratchgame-fat.jar
 
 ## Run
 
-Option1: java -jar build/libs/scratchgame-fat.jar --config config.json --betting-amount 100
-Option2: ./gradlew run --args="--config config.json  --betting-amount 100"
+- Option1: java -jar build/libs/scratchgame-fat.jar --config config.json --betting-amount 100
+- Option2: ./gradlew run --args="--config config.json  --betting-amount 100"
 
 ## Features
 
